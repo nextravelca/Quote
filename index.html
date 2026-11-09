@@ -112,6 +112,7 @@ fieldset>*{clear:both}
 .q .acts .hdr{margin-top:0}
 .q .act{padding:9px 0;border-bottom:1px solid var(--line)}
 .q .act:last-of-type{border-bottom:0}
+.q .act .kd{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--deep);font-weight:600}
 .q .act b{display:block;font-family:var(--display);font-size:16px;color:var(--navy);line-height:1.2}
 .q .act .am{font-size:13px;color:var(--muted)}
 .q .act .an{font-size:14px;margin-top:2px}
@@ -182,7 +183,7 @@ const TRANSFERS=["Included","Private","Shared shuttle","Port only","Not included
 const CHANGES=["Free changes until final payment","Changes allowed with a fee","Non-refundable","Refundable until final payment","Other"];
 const UNITS=["per person","per booking"];
 
-const blankAct=()=>({name:"",when:"",ad:"",ch:"",note:""});
+const blankAct=()=>({kind:"Excursion",name:"",date:"",time:"",when:"",ad:"",ch:"",note:""});
 const blankOption=()=>({acts:[],label:"Best value",name:"",place:"",photo:null,pp:"",total:"",room:"",meals:"",flights:"",transfers:"",inc:"",exc:"",pick:false});
 const sample=()=>withActs({v:2,
   client:"the Hartley family",greet:"Sam and Priya",quoteNo:"NT-1042",date:today(),
@@ -236,16 +237,19 @@ function termsDerived(){
 
 function withActs(s){
   const A=[
-   [{name:"Chichén Itzá day trip",when:"Day 3",ad:"139",ch:"99",note:"Guided tour of the ruins, lunch and a cenote swim."},
-    {name:"Catamaran and snorkel",when:"Day 5",ad:"89",ch:"65",note:"Open bar, snorkel gear and a beach stop."}],
-   [{name:"Mayan ruins and cenote swim",when:"Day 3 · Cozumel",ad:"119",ch:"89",note:"Guided tour, lunch and a swim stop. Back on the ship by 3 pm."},
-    {name:"Reef snorkel and beach lunch",when:"Day 5 · Roatán",ad:"79",ch:"59",note:"Gear included. Calm water."},
-    {name:"Family beach day",when:"Day 6 · Costa Maya",ad:"65",ch:"",note:"Chairs, umbrella and lunch voucher. Kids go at the same price."}],
-   [{name:"Private island day",when:"Day 4",ad:"159",ch:"110",note:"Boat out, lunch and drinks, snorkel gear."}]];
-  s.options.forEach((o,i)=>{o.acts=(A[i]||[]).map(a=>({...a}));}); return s;
+   [{kind:"Excursion",name:"Chichén Itzá day trip",off:2,time:"08:00",when:"Meet in the hotel lobby",ad:"139",ch:"99",note:"Guided tour of the ruins, lunch and a cenote swim."},
+    {kind:"Excursion",name:"Catamaran and snorkel",off:4,time:"10:30",when:"Marina pickup",ad:"89",ch:"65",note:"Open bar, snorkel gear and a beach stop."}],
+   [{kind:"Excursion",name:"Mayan ruins and cenote swim",off:2,time:"09:00",when:"Cozumel",ad:"119",ch:"89",note:"Guided tour, lunch and a swim stop. Back on the ship by 3 pm."},
+    {kind:"Excursion",name:"Reef snorkel and beach lunch",off:4,time:"10:00",when:"Roatán",ad:"79",ch:"59",note:"Gear included. Calm water."},
+    {kind:"Activity",name:"Family beach day",off:5,time:"09:30",when:"Costa Maya",ad:"65",ch:"",note:"Chairs, umbrella and lunch voucher. Kids go at the same price."}],
+   [{kind:"Excursion",name:"Private island day",off:3,time:"09:00",when:"Boat leaves from the resort dock",ad:"159",ch:"110",note:"Boat out, lunch and drinks, snorkel gear."}]];
+  s.options.forEach((o,i)=>{o.acts=(A[i]||[]).map(a=>{const {off,...r}=a;return {...r,date:s.depart?addDays(s.depart,off):""};});}); return s;
 }
+const fmtT=s=>{const m=/^(\d{1,2}):(\d{2})$/.exec(s||"");if(!m)return "";let h=+m[1];const ap=h>=12?"PM":"AM";h=h%12||12;return h+":"+m[2]+" "+ap;};
+const WD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const fmtDW=s=>{const t=pd(s);if(t==null)return "";return WD[new Date(t).getUTCDay()]+", "+fmtD(s);};
 function actsHTML(o){
-  const L=(o.acts||[]).filter(x=>x.name&&x.name.trim()); if(!L.length) return '';
+  const L=(o.acts||[]).filter(x=>x.name&&x.name.trim()).map((x,i)=>({x,i})).sort((p,q)=>((p.x.date||'9999')+(p.x.time||'99:99')).localeCompare((q.x.date||'9999')+(q.x.time||'99:99'))||p.i-q.i).map(p=>p.x); if(!L.length) return '';
   const a=+S.adults||0,k=+S.kids||0; let grand=0,any=false;
   const rows=L.map(x=>{
     const ad=num(x.ad), chv=num(x.ch), ch=chv==null?ad:chv;
@@ -254,7 +258,7 @@ function actsHTML(o){
     if(ad!=null) chips.push(`<span>Adult ${money(ad)}</span>`); else if(x.ad) chips.push(`<span>${esc(x.ad)}</span>`);
     if(ad!=null&&(k>0||chv!=null)) chips.push(`<span>Child ${chv==null?'same':money(chv)}</span>`);
     if(sub!=null&&(a+k)>0) chips.push(`<span class="g">Your group ${money(sub)}</span>`);
-    return `<div class="act"><b>${esc(x.name)}</b>${x.when?`<div class="am">${esc(x.when)}</div>`:''}${x.note?`<div class="an">${esc(x.note)}</div>`:''}${chips.length?`<div class="ap">${chips.join('')}</div>`:''}</div>`;
+    return `<div class="act"><div class="kd">${esc(x.kind||"Excursion")}</div><b>${esc(x.name)}</b>${(()=>{const m=[fmtDW(x.date),fmtT(x.time),x.when].filter(Boolean).map(esc).join(' · ');return m?`<div class="am">${m}</div>`:'';})()}${x.note?`<div class="an">${esc(x.note)}</div>`:''}${chips.length?`<div class="ap">${chips.join('')}</div>`:''}</div>`;
   }).join('');
   const tot=any&&L.length>1&&(a+k)>0?`<div class="atot"><span>All of these, for ${plural(a+k,'traveller')}</span><b>${money(grand)}</b></div>`:'';
   return `<div class="acts"><div class="hdr">Optional activities and excursions</div>${rows}${tot}</div>`;
@@ -339,8 +343,8 @@ function renderForm(){
     ${ofield(i,'inc','Included (one per line)',x.inc,'',null,true)}${ofield(i,'exc','Not included (one per line)',x.exc,'',null,true)}
     <div class="xform"><div class="opt-head"><b>Optional activities and excursions</b><button class="btn small" type="button" data-aadd="${i}">+ Add</button></div>
     ${(!x.acts||!x.acts.length)?'<p class="hint">None yet. Add shore excursions or resort activities with adult and child prices.</p>':''}
-    ${(x.acts||[]).map((a,j)=>{const af=(k,lab,ph,mode,area)=>`<div class="f"><label for="a${i}_${j}${k}">${lab}</label>${area?`<textarea id="a${i}_${j}${k}" data-ao="${i}" data-ai="${j}" data-ak="${k}">${esc(a[k])}</textarea>`:`<input id="a${i}_${j}${k}" data-ao="${i}" data-ai="${j}" data-ak="${k}" value="${esc(a[k])}" ${ph?`placeholder="${esc(ph)}"`:''} ${mode?`inputmode="${mode}"`:''} autocomplete="off">`}</div>`;
-      return `<div class="xform"><div class="opt-head"><span class="hint" style="margin:0">Activity ${j+1}</span><button class="btn small" type="button" data-arm="${i}_${j}">Remove</button></div>${af('name','Name','Mayan ruins and cenote swim')}${af('when','Day and place','Day 3 · Cozumel')}<div class="row2">${af('ad','Adult price ($)','119','numeric')}${af('ch','Child price ($)','blank = same','numeric')}</div>${af('note','What is included','',null,true)}</div>`;}).join('')}</div>
+    ${(x.acts||[]).map((a,j)=>{const af=(k,lab,ph,mode,area,typ)=>`<div class="f"><label for="a${i}_${j}${k}">${lab}</label>${area?`<textarea id="a${i}_${j}${k}" data-ao="${i}" data-ai="${j}" data-ak="${k}">${esc(a[k])}</textarea>`:`<input id="a${i}_${j}${k}" data-ao="${i}" data-ai="${j}" data-ak="${k}" value="${esc(a[k])}" ${typ?`type="${typ}"`:''} ${ph?`placeholder="${esc(ph)}"`:''} ${mode?`inputmode="${mode}"`:''} autocomplete="off">`}</div>`;
+      return `<div class="xform"><div class="opt-head"><span class="hint" style="margin:0">Item ${j+1}</span><button class="btn small" type="button" data-arm="${i}_${j}">Remove</button></div>${sel('a'+i+'_'+j+'kind','Type',a.kind||'Excursion',['Excursion','Activity'],'data-ao="'+i+'" data-ai="'+j+'" data-ak="kind"')}${af('name','Name','Mayan ruins and cenote swim')}<div class="row2">${af('date','Date','',null,false,'date')}${af('time','Time','',null,false,'time')}</div>${af('when','Place or meeting point','Cozumel, or hotel lobby')}<div class="row2">${af('ad','Adult price ($)','119','numeric')}${af('ch','Child price ($)','blank = same','numeric')}</div>${af('note','What is included','',null,true)}</div>`;}).join('')}</div>
     <label class="chk"><input type="checkbox" data-o="${i}" data-k="pick" ${x.pick?'checked':''}> Mark this one as my pick</label></fieldset>`;
   });
   h+=dl('dl-meals',MEALS)+dl('dl-flights',FLIGHTS)+dl('dl-trans',TRANSFERS);
