@@ -151,11 +151,11 @@ fieldset>*{clear:both}
 .q .act .kd{display:inline-block;background:var(--navy);color:#fff;border-radius:99px;padding:2px 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;margin-bottom:3px}
 .q .pickany{font-size:13px;color:var(--navy);background:var(--sky);border-radius:8px;padding:6px 10px;margin:6px 0 2px}
 .q .steps{grid-template-columns:repeat(3,1fr);gap:28px}
-.q .steps li:nth-child(1){--sc:#0E6BB8}
-.q .steps li:nth-child(2){--sc:#C84A12}
-.q .steps li:nth-child(3){--sc:#2A7D3E}
-.q .steps li{background:var(--sc);color:#fff;border:0;font-weight:500}
-.q .steps li::before{background:#fff;color:var(--sc)}
+.q .steps li:nth-child(1){--sc:#1583D8;--st:#fff;--nc:#0E4C7A}
+.q .steps li:nth-child(2){--sc:#FFA31A;--st:#16222e;--nc:#0E4C7A}
+.q .steps li:nth-child(3){--sc:#2A7D3E;--st:#fff;--nc:#2A7D3E}
+.q .steps li{background:var(--sc);color:var(--st);border:0;font-weight:500}
+.q .steps li::before{background:#fff;color:var(--nc)}
 .q .steps li:not(:last-child)::after{content:"";position:absolute;right:-22px;top:50%;margin-top:-13px;border-left:15px solid var(--sc);border-top:13px solid transparent;border-bottom:13px solid transparent}
 @media(max-width:700px){.q:not(.force) .steps{grid-template-columns:1fr}
 .q:not(.force) .steps li:not(:last-child)::after{right:auto;left:50%;top:auto;bottom:-24px;margin:0 0 0 -13px;border-left:13px solid transparent;border-right:13px solid transparent;border-top:15px solid var(--sc);border-bottom:0}}
@@ -303,7 +303,7 @@ const WD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const fmtDW=s=>{const t=pd(s);if(t==null)return "";return WD[new Date(t).getUTCDay()]+", "+fmtD(s);};
 const COLORS=['#1583D8','#E0561A','#0B8577','#A6307F','#5B3FBF','#2F8A44'];
 const PARTS=['Morning','Afternoon','Evening','Full day'];
-const AW='Outing';
+const AW='Adventure';
 const awPlural=w=>w+'s';
 const CHK=["Checked baggage","Taxes and fees","Drinks","Tips and gratuities","Travel insurance","Wi-Fi","Kids' club"];
 const SORTP=['Full day','Morning','Afternoon','Evening'];
@@ -333,7 +333,7 @@ function quoteHTML(){
     const img=o.photo||IMGS[i%IMGS.length];
     const rows=[["Stay",o.room],["Meals",o.meals],["Flights",o.flights],["Transfers",o.transfers]].filter(r=>r[1]);
     const yes=CHK.filter((c,k)=>(o.chk||[])[k]==='in'), no=CHK.filter((c,k)=>(o.chk||[])[k]==='out'), notes=lines(o.inc);
-    return `<article class="card${o.pick?' pick':''}">${o.pick?'<span class="ribbon">Advisor’s Top Pick</span>':''}
+    return `<article class="card${o.pick?' pick':''}">${o.pick?'<span class="ribbon">Best Fit for You</span>':''}
       <img src="${img}" alt="${esc(o.name||'Trip photo')}">
       <div class="body">
         <div class="tag">Option ${String.fromCharCode(65+i)}${o.label?' · '+esc(o.label):''}</div>
@@ -413,7 +413,7 @@ function renderForm(){
     <p class="hint">Clients can choose one, a few, or all of these. They do not have to pick everything. The quote says so.</p>
     ${(x.acts||[]).map((a,j)=>{const rk=actRank(x).indexOf(j); const af=(k,lab,ph,mode,area,typ)=>`<div class="f"><label for="a${i}_${j}${k}">${lab}</label>${area?`<textarea id="a${i}_${j}${k}" data-ao="${i}" data-ai="${j}" data-ak="${k}">${esc(a[k])}</textarea>`:`<input id="a${i}_${j}${k}" data-ao="${i}" data-ai="${j}" data-ak="${k}" value="${esc(a[k])}" ${typ?`type="${typ}"`:''} ${ph?`placeholder="${esc(ph)}"`:''} ${mode?`inputmode="${mode}"`:''} autocomplete="off">`}</div>`;
       return `<div class="xform" style="border-left:4px solid var(--navy);padding-left:10px"><div class="opt-head"><span class="hint" style="margin:0"><b>${AW} ${rk+1}</b></span><button class="btn small" type="button" data-arm="${i}_${j}">Remove</button></div>${af('name','Name','Mayan ruins and cenote swim')}<div class="row2">${af('date','Date','',null,false,'date')}${sel('a'+i+'_'+j+'part','Time of day',a.part||'',[['','—']].concat(PARTS),'data-ao="'+i+'" data-ai="'+j+'" data-ak="part"')}</div><div class="row2">${af('ad','Adult price ($)','119','numeric')}${af('ch','Child price ($)','blank = same','numeric')}</div>${af('note','What is included','',null,true)}</div>`;}).join('')}</div>
-    <label class="chk"><input type="checkbox" data-o="${i}" data-k="pick" ${x.pick?'checked':''}> Mark as my Advisor’s Top Pick</label></fieldset>`;
+    <label class="chk"><input type="checkbox" data-o="${i}" data-k="pick" ${x.pick?'checked':''}> Mark as Best Fit for You</label></fieldset>`;
   });
   h+=dl('dl-meals',MEALS)+dl('dl-flights',FLIGHTS)+dl('dl-trans',TRANSFERS);
   if(o.length<3) h+=`<button class="btn small" type="button" id="addOpt" style="align-self:flex-start">+ Add another option</button>`;
