@@ -276,7 +276,7 @@ function termsDerived(){
   const t=S.terms;
   return {held:fmtD(t.heldD),final:fmtD(t.finalD),
     deposit:t.depAmt?(num(t.depAmt)!=null?money(num(t.depAmt)):t.depAmt)+" "+t.depUnit:"",
-    changes:t.chg==='Other'?t.chgOther:t.chg};
+    changes:t.chg==='Other'?t.chgOther:t.chg,step2:fmtD(t.step2D||'')};
 }
 
 function withActs(s){
@@ -360,7 +360,7 @@ function quoteHTML(){
     ${terms.length?`<section class="terms">${terms.map(r=>`<div><span>${r[0]}</span><b>${esc(r[1])}</b></div>`).join('')}</section>`:''}
     ${sup?`<section class="backup"><h3>The supplier's full details</h3><p>The original breakdown from the supplier, for anyone who likes the fine print.</p>${sup}</section>`:''}
     <section class="next"><h3>Ready when you are</h3>
-      <ol class="steps"><li>Tell me which option you like, and which extras you'd like to add.</li><li>I'll hold it with a deposit${t.held?' before '+esc(t.held):''}.</li><li>I'll send your itinerary and keep an eye on it until you travel.</li></ol>
+      <ol class="steps"><li>Tell me which option you like, and which extras you'd like to add.</li><li>I'll hold it with a deposit${t.step2?' before <b>'+esc(t.step2)+'</b>':''}.</li><li>I'll send your itinerary and keep an eye on it until you travel.</li></ol>
       <a class="cta" href="${FORM_URL}">Let’s make it happen!</a><div class="ctalink"><span class="lnk">Nextravel Form</span></div>
       <div class="contact"><b>Chris Blunt</b>, Independent Travel Advisor · <span class="mail">chris.blunt@nextravel.ca</span></div>
       <p class="fine">Prices are per person in ${S.cur==='USD'?'US dollars':'Canadian dollars'}, based on double occupancy where noted, and can change until a deposit is paid. Nextravel.ca is affiliated with Nexion Canada, ULC.</p></section>`;
@@ -422,6 +422,7 @@ function renderForm(){
   h+=`<fieldset><legend>Terms</legend>
     <div class="row2">${field('t_heldD','Price held until',t.heldD,{type:'date'})}${field('t_finalD','Final payment due',t.finalD,{type:'date'})}</div>
     <div class="row2">${field('t_depAmt','Deposit ($)',t.depAmt,{ph:'250'})}${sel('t_depUnit','Deposit is',t.depUnit,UNITS)}</div>
+    ${field('t_step2D','Ready when you are, box 2: hold it with a deposit before (optional date)',t.step2D||'',{type:'date'})}
     ${sel('t_chg','Changes and cancellation',t.chg,[["","Choose one"],...CHANGES])}
     ${t.chg==='Other'?field('t_chgOther','Describe it',t.chgOther):''}</fieldset>
   <fieldset><legend>The supplier's screenshot or PDF page</legend><p class="hint" style="margin-top:0">Add the screenshots from the supplier portal. They go at the bottom of the quote.</p>
