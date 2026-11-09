@@ -37,6 +37,15 @@ button,input,textarea,select{font:inherit;color:inherit}
 .viewer .app{display:block;max-width:1100px;padding:16px}
 .viewer .preview-wrap{display:block!important;visibility:hidden}
 .viewer.ready .preview-wrap{visibility:visible}
+.qpanel{position:fixed;inset:0;background:rgba(14,76,122,.45);display:none;align-items:flex-start;justify-content:center;padding:60px 16px;z-index:20}
+.qpanel.on{display:flex}
+.qbox{background:var(--paper);border-radius:16px;max-width:560px;width:100%;max-height:80vh;overflow:auto;padding:16px 18px}
+.qbox h2{font-family:var(--display);color:var(--navy);margin:0 0 4px;font-size:20px}
+.qrow{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.qm{font-size:13px;color:var(--muted)}
+.qb{display:flex;gap:6px;flex-shrink:0}
+.qfoot{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.viewer .qpanel{display:none!important}
 .linkbox{background:var(--sky);padding:10px 16px;display:none;gap:8px;align-items:center;flex-wrap:wrap;color:var(--navy)}
 .linkbox.on{display:flex}
 .linkbox input{flex:1;min-width:220px;border:1.5px solid var(--navy);border-radius:10px;padding:8px 10px;background:#fff}
@@ -144,6 +153,8 @@ fieldset>*{clear:both}
   <h1>Quote maker</h1>
   <div class="status" id="status" role="status" aria-live="polite"></div>
   <div class="acts">
+    <button class="btn ghost" id="myBtn" type="button">My quotes</button>
+    <button class="btn ghost" id="saveBtn" type="button">Save quote</button>
     <button class="btn ghost" id="blankBtn" type="button">Start a blank quote</button>
     <button class="btn" id="linkBtn" type="button">Get a link to send</button>
     <button class="btn" id="webBtn" type="button">Save as web page</button>
@@ -151,7 +162,8 @@ fieldset>*{clear:both}
     <button class="btn main" id="pdfBtn" type="button">Save as PDF</button>
   </div>
 </div>
-<div class="linkbox" id="linkbox"><b>Link to send:</b><input id="linkOut" readonly aria-label="Link to send"><button class="btn small" id="copyLink" type="button">Copy</button><small>The whole quote is inside this link. Photos you added yourself are not included in the link (the built-in photos are). Make a new link after any change.</small></div>
+<div class="qpanel" id="qpanel" role="dialog" aria-label="My quotes"><div class="qbox"><h2>My quotes</h2><p class="hint" style="margin:0 0 6px">Saved on this phone or computer, in this browser only.</p><div id="qlist"></div><div class="qfoot"><button class="btn small" id="qSaveNow" type="button">Save the quote I am working on</button><button class="btn small" id="qClose" type="button">Close</button></div></div></div>
+<div class="linkbox" id="linkbox"><b id="linkLabel">Link to send:</b><input id="linkOut" readonly aria-label="Link to send"><button class="btn small" id="copyLink" type="button">Copy</button><small id="linkNote">The whole quote is inside this link. Photos you added yourself are not included in the link (the built-in photos are). Make a new link after any change.</small></div>
 <div class="tabs" role="tablist">
   <button type="button" role="tab" id="tabFill" aria-selected="true">1. Fill in</button>
   <button type="button" role="tab" id="tabPrev" aria-selected="false">2. See the quote</button>
@@ -201,7 +213,7 @@ const sample=()=>withActs({v:2,
 const blank=()=>({v:2,client:"",greet:"",quoteNo:"NT-",date:today(),title:"Your trip options",note:"",depart:"",nights:7,ret:"",from:"Toronto (YYZ)",adults:2,kids:0,
   options:[blankOption()],terms:{heldD:"",finalD:"",depAmt:"",depUnit:"per person",chg:"",chgOther:""},supplier:[]});
 
-const HASH=location.hash.match(/^#q=([zp])\.([\w-]+)$/); const VIEW=!!HASH;
+const HASH=location.hash.match(/^#q=([zp])\.([\w-]+)$/); const VIEW=!!HASH; const EDIT=location.hash.match(/^#e=([zp])\.([\w-]+)$/);
 if(VIEW) document.documentElement.classList.add("viewer");
 let S=sample();
 try{const r=VIEW?null:localStorage.getItem('nt-quote-draft'); if(r){const d=JSON.parse(r); if(d&&d.v===2&&d.options) S=d;}}catch(e){}
@@ -358,7 +370,7 @@ function renderForm(){
   <fieldset><legend>The supplier's screenshot or PDF page</legend><p class="hint" style="margin-top:0">Add the screenshots from the supplier portal. They go at the bottom of the quote.</p>
     <div class="photo-row" style="flex-wrap:wrap">${(S.supplier||[]).map((s,i)=>`<span><img src="${s}" alt=""><button class="btn small" type="button" data-rmsup="${i}">×</button></span>`).join('')}
     <label class="btn small" for="supfile" style="cursor:pointer">Add screenshot</label><input id="supfile" type="file" accept="image/*" multiple hidden></div></fieldset>`;
-  h+=`<fieldset><legend>Done? Save it or send it</legend><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn main" type="button" data-do="pdf">Save as PDF</button><button class="btn small" type="button" data-do="link">Get a link to send</button><button class="btn small" type="button" data-do="png">Save as picture</button></div></fieldset>`;
+  h+=`<fieldset><legend>Done? Save it or send it</legend><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn main" type="button" data-do="pdf">Save as PDF</button><button class="btn small" type="button" data-do="save">Save quote</button><button class="btn small" type="button" data-do="edit">Get an edit link</button><button class="btn small" type="button" data-do="link">Get a link to send</button><button class="btn small" type="button" data-do="png">Save as picture</button></div></fieldset>`;
   F.innerHTML=h;
 }
 function setVal(id,v){const e=document.getElementById(id); if(e) e.value=v;}
@@ -381,7 +393,7 @@ F.addEventListener('input',onInput);
 F.addEventListener('change',e=>{ if(e.target.tagName==='SELECT'&&!e.target.dataset.o) onInput(e); });
 F.addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b) return;
-  if(b.dataset.do){ if(b.dataset.do==='link'){document.getElementById('linkBtn').click();window.scrollTo(0,0);} else doSave(b.dataset.do); return; }
+  if(b.dataset.do){ const a=b.dataset.do; if(a==='link'){document.getElementById('linkBtn').click();window.scrollTo(0,0);} else if(a==='edit'){showLink('e');window.scrollTo(0,0);} else if(a==='save'){saveQuote();} else doSave(a); return; }
   if(b.dataset.aadd!==undefined){const o=S.options[+b.dataset.aadd]; (o.acts=o.acts||[]).push(blankAct());}
   else if(b.dataset.arm!==undefined){const [oi,ai]=b.dataset.arm.split('_').map(Number); S.options[oi].acts.splice(ai,1);}
   else if(b.dataset.rm!==undefined){S.options.splice(+b.dataset.rm,1);}
@@ -496,8 +508,87 @@ async function loadShared(){
   document.documentElement.classList.add('ready');
 }
 
+/* ---------- My quotes (saved on this device) ---------- */
+const QK='nt-quotes', CK='nt-quote-cur';
+let curId=null; try{curId=localStorage.getItem(CK)||null;}catch(e){}
+const loadQ=()=>{try{return JSON.parse(localStorage.getItem(QK)||'[]')}catch(e){return []}};
+const storeQ=l=>{try{localStorage.setItem(QK,JSON.stringify(l));return true;}catch(e){return false;}};
+function setCur(id){curId=id;try{id?localStorage.setItem(CK,id):localStorage.removeItem(CK);}catch(e){}}
+const qName=()=>(S.client||'').trim()||'Untitled quote';
+function saveQuote(silent){
+  const list=loadQ(), now=Date.now();
+  const id=(curId&&list.find(x=>x.id===curId))?curId:('q'+now.toString(36)+Math.random().toString(36).slice(2,6));
+  const rec={id,name:qName(),saved:now,data:JSON.parse(JSON.stringify(S))};
+  const i=list.findIndex(x=>x.id===id); if(i>=0) list[i]=rec; else list.unshift(rec);
+  let ok=storeQ(list), note='';
+  if(!ok){
+    const lite=JSON.parse(JSON.stringify(rec)); lite.data.options.forEach(o=>{o.photo=null;}); lite.data.supplier=[];
+    const j=list.findIndex(x=>x.id===id); list[j]=lite; ok=storeQ(list); note=' (without your own photos and screenshots, because the browser storage was full)';
+  }
+  if(ok){setCur(id); if(!silent) say('Saved as "'+rec.name+'"'+note+'.');}
+  else say('Could not save. The browser storage is full. Delete some old quotes in My quotes.');
+  if(document.getElementById('qpanel').classList.contains('on')) renderPanel();
+  return ok;
+}
+function renderPanel(){
+  const list=loadQ().sort((a,b)=>b.saved-a.saved);
+  document.getElementById('qlist').innerHTML=list.length?list.map(x=>`<div class="qrow"><div><b>${esc(x.name)}</b><div class="qm">${x.id===curId?'Open now · ':''}Saved ${esc(new Date(x.saved).toLocaleString('en-CA',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))}</div></div><div class="qb"><button class="btn small" data-qopen="${x.id}" type="button">Open</button><button class="btn small" data-qdel="${x.id}" type="button">Delete</button></div></div>`).join(''):'<p class="hint">No saved quotes yet. Fill in a quote, then press Save quote.</p>';
+}
+const openPanel=()=>{renderPanel();document.getElementById('qpanel').classList.add('on');};
+const closePanel=()=>document.getElementById('qpanel').classList.remove('on');
+function openQuote(id){
+  const rec=loadQ().find(x=>x.id===id); if(!rec||!rec.data||!rec.data.options) return;
+  if(id===curId){closePanel();return;}
+  if(curId) saveQuote(true);
+  else if(!confirm('The quote you are working on has not been saved. Open another quote anyway?')) return;
+  S=rec.data; setCur(id); renderForm();renderPreview();saveDraft();closePanel();say('Opened "'+rec.name+'".');
+}
+document.getElementById('myBtn').onclick=openPanel;
+document.getElementById('saveBtn').onclick=()=>saveQuote();
+document.getElementById('qSaveNow').onclick=()=>saveQuote();
+document.getElementById('qClose').onclick=closePanel;
+document.getElementById('qpanel').addEventListener('click',e=>{
+  if(e.target.id==='qpanel') return closePanel();
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.qopen) openQuote(b.dataset.qopen);
+  else if(b.dataset.qdel){
+    const l=loadQ(), r=l.find(x=>x.id===b.dataset.qdel); if(!r) return;
+    if(!confirm('Delete "'+r.name+'"? This cannot be undone.')) return;
+    storeQ(l.filter(x=>x.id!==r.id)); if(r.id===curId) setCur(null); renderPanel();
+  }
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape') closePanel();});
+document.getElementById('blankBtn').onclick=()=>{
+  if(!confirm('Start a blank quote? Anything you have not saved in My quotes will be cleared.')) return;
+  S=blank(); setCur(null); renderForm();renderPreview();saveDraft();say('Blank quote ready.');
+};
+
+/* ---------- links: one to send, one to edit later ---------- */
+async function showLink(prefix){
+  try{
+    const link=location.href.split('#')[0]+'#'+prefix+'='+await encodeQuote();
+    const box=document.getElementById('linkbox'),inp=document.getElementById('linkOut');
+    document.getElementById('linkLabel').textContent=prefix==='e'?'Edit link (keep this to yourself):':'Link to send:';
+    document.getElementById('linkNote').textContent=prefix==='e'
+      ?'Open this link on any phone or computer to keep working on this quote. Photos you added yourself are not included. Do not send it to your client.'
+      :'The whole quote is inside this link. Photos you added yourself are not included in the link (the built-in photos are). Make a new link after any change.';
+    box.classList.add('on'); inp.value=link; inp.focus(); inp.select();
+    try{await navigator.clipboard.writeText(link); say('Link copied.');}catch(e){say('Link ready. Copy it from the box.');}
+  }catch(e){say('Could not make the link. Please try again.');}
+}
+document.getElementById('linkBtn').onclick=()=>showLink('q');
+async function loadEdit(){
+  try{
+    const d=await decodeQuote(EDIT[1],EDIT[2]); if(!d||!d.options) throw 0;
+    history.replaceState(null,'',location.pathname+location.search);
+    if(!confirm('Open this quote for editing? The quote you are working on in this browser will be replaced.')) return;
+    if(curId) saveQuote(true);
+    S=d; setCur(null); renderForm();renderPreview();saveDraft(); say('Quote opened. Press Save quote to keep it in My quotes.');
+  }catch(e){ say('That edit link looks incomplete.'); }
+}
+
 renderForm();renderPreview();
-if(VIEW) loadShared();
+if(VIEW) loadShared(); else if(EDIT) loadEdit();
 </script>
 </body>
 </html>
