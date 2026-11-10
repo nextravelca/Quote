@@ -181,7 +181,7 @@ fieldset>*{clear:both}
     <button class="btn main" id="pdfBtn" type="button">Save as PDF</button>
   </div>
 </div>
-<div class="qpanel" id="qpanel" role="dialog" aria-label="My quotes"><div class="qbox"><h2>My quotes</h2><p class="hint" style="margin:0 0 6px">Saved on this phone or computer, in this browser only.</p><div id="qlist"></div><div class="qfoot"><button class="btn small" id="qSaveNow" type="button">Save the quote I am working on</button><button class="btn small" id="qClose" type="button">Close</button></div></div></div>
+<div class="qpanel" id="qpanel" role="dialog" aria-label="My quotes"><div class="qbox"><h2>My quotes</h2><p class="hint" style="margin:0 0 6px">Saved on this phone or computer, in this browser only.</p><div id="qlist"></div><div class="qfoot" style="margin-bottom:6px"><button class="btn small" id="qBackup" type="button">Back up all my quotes (file)</button><button class="btn small" id="qRestore" type="button">Open a backup file</button><input type="file" id="qFile" accept=".json,.ntquotes,application/json" hidden></div><p class="hint" style="margin:0 0 8px">A backup file keeps your quotes safe if the browser forgets them. You can open it on any phone or computer.</p><div class="qfoot"><button class="btn small" id="qSaveNow" type="button">Save the quote I am working on</button><button class="btn small" id="qClose" type="button">Close</button></div></div></div>
 <div class="linkbox" id="linkbox"><b id="linkLabel">Link to send:</b><input id="linkOut" readonly aria-label="Link to send"><button class="btn small" id="copyLink" type="button">Copy</button><small id="linkNote">The whole quote is inside this link. Photos you added yourself are not included in the link (the built-in photos are). Make a new link after any change.</small></div>
 <div class="tabs" role="tablist">
   <button type="button" role="tab" id="tabFill" aria-selected="true">1. Fill in</button>
@@ -607,6 +607,26 @@ document.getElementById('myBtn').onclick=openPanel;
 document.getElementById('saveBtn').onclick=()=>saveQuote();
 document.getElementById('qSaveNow').onclick=()=>saveQuote();
 document.getElementById('qClose').onclick=closePanel;
+document.getElementById('qBackup').onclick=async()=>{
+  saveQuote(true);
+  const l=loadQ(); if(!l.length){say('Nothing to back up yet.');return;}
+  const d=new Date(), ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  await DL.save({filename:'Nextravel-quotes-backup-'+ds+'.json',data:new Blob([JSON.stringify({nt:1,quotes:l})],{type:'application/json'})});
+  say('Backup file saved: '+l.length+' quote'+(l.length===1?'':'s')+'. Keep it somewhere safe.');
+};
+document.getElementById('qRestore').onclick=()=>document.getElementById('qFile').click();
+document.getElementById('qFile').onchange=async e=>{
+  const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
+  try{
+    const j=JSON.parse(await f.text());
+    const inc=(j&&Array.isArray(j.quotes)?j.quotes:[]).filter(x=>x&&x.id&&x.data&&Array.isArray(x.data.options));
+    if(!inc.length){say('That file does not look like a Nextravel quote backup.');return;}
+    const l=loadQ(); let n=0;
+    inc.forEach(x=>{const i=l.findIndex(y=>y.id===x.id); if(i>=0){if((x.saved||0)>(l[i].saved||0)){l[i]=x;n++;}} else {l.push(x);n++;}});
+    if(!storeQ(l)){say('Could not open the backup. The browser storage is full.');return;}
+    renderPanel(); say(n?('Added '+n+' quote'+(n===1?'':'s')+' from the backup.'):'Those quotes were already here.');
+  }catch(err){say('That file could not be read.');}
+};
 document.getElementById('qpanel').addEventListener('click',e=>{
   if(e.target.id==='qpanel') return closePanel();
   const b=e.target.closest('button'); if(!b) return;
