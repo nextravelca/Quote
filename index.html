@@ -114,8 +114,11 @@ fieldset>*{clear:both}
 .q ul.inc{list-style:none;margin:0;padding:0;display:grid;gap:5px;font-size:15px}
 .q ul.inc li{padding-left:24px;position:relative}
 .q ul.inc li::before{content:"";position:absolute;left:2px;top:.35em;width:12px;height:7px;border-left:2.5px solid var(--blue);border-bottom:2.5px solid var(--blue);transform:rotate(-45deg)}
-.q ul.inc li.no{color:var(--muted)}
-.q ul.inc li.no::before{border:none;width:10px;height:2.5px;background:var(--deep);transform:none;top:.62em;left:3px}
+.q ul.inc.out li::before{content:"\2715";border:none;width:auto;height:auto;transform:none;top:0;left:1px;color:#C62828;font-weight:700;font-size:15px;line-height:1.5}
+.q .hdr.yes,.q .hdr.nox{margin-top:8px;display:flex;align-items:center;gap:6px}
+.q .hdr.yes{color:#2A7D3E}.q .hdr.yes::before{content:"\2713";font-size:15px}
+.q .hdr.nox{color:#C62828}.q .hdr.nox::before{content:"\2715";font-size:15px}
+.q .design{font-size:11.5px;color:var(--muted);margin-top:8px;text-align:left;letter-spacing:.02em}
 .q .hdr{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:-4px;font-weight:600}
 .q .acts{margin-top:14px;border-top:1.5px dashed var(--line);padding-top:12px}
 .q .acts .hdr{margin-top:0}
@@ -215,7 +218,7 @@ const TRANSFERS=["Included","Private","Shared shuttle","Port only","Not included
 const CHANGES=["Free changes until final payment","Changes allowed with a fee","Non-refundable","Refundable until final payment","Other"];
 const UNITS=["per person","per booking"];
 
-const blankAct=()=>({name:"",date:"",part:"",ad:"",ch:"",note:""});
+const blankAct=()=>({kind:"",kl:"",name:"",date:"",part:"",ad:"",ch:"",note:""});
 const blankOption=()=>({acts:[],chk:["","","","","","",""],aw:"Adventure",label:"Best value",name:"",place:"",photo:null,pp:"",total:"",room:"",meals:"",flights:"",transfers:"",inc:"",exc:"",pick:false});
 const sample=()=>withActs({v:2,
   client:"the Hartley family",greet:"Sam and Priya",quoteNo:"NT-1042",date:today(),
@@ -313,6 +316,8 @@ function actsHTML(o){
   const word=AW;
   const L=actRank(o).map(i=>o.acts[i]).filter(x=>x.name&&x.name.trim()); if(!L.length) return '';
   const a=+S.adults||0,k=+S.kids||0; let grand=0,any=false;
+  const cnt={}; const labOf=x=>x.kind==='other'?((x.kl||'').trim()||'Other'):word;
+  const hasA=L.some(x=>x.kind!=='other'), hasO=L.some(x=>x.kind==='other');
   const rows=L.map((x,n)=>{
     const ad=num(x.ad), chv=num(x.ch), ch=chv==null?ad:chv;
     let sub=null; if(ad!=null){sub=ad*a+(ch!=null?ch*k:0); grand+=sub; any=true;}
@@ -321,10 +326,10 @@ function actsHTML(o){
     if(ad!=null&&(k>0||chv!=null)) chips.push(`<span>Child ${chv==null?'same':money(chv)}</span>`);
     if(sub!=null&&(a+k)>0) chips.push(`<span class="g">Your group ${money(sub)}</span>`);
     const meta=[fmtDW(x.date),x.part].filter(Boolean).map(esc).join(' · ');
-    return `<div class="act"><div class="kd">${esc(word)} ${n+1}</div><b>${esc(x.name)}</b>${meta?`<div class="am">${meta}</div>`:''}${x.note?`<div class="an">${esc(x.note)}</div>`:''}${chips.length?`<div class="ap">${chips.join('')}</div>`:''}</div>`;
+    return `<div class="act"><div class="kd">${esc(labOf(x))}${x.kind==='other'?'':' '+(cnt.a=(cnt.a||0)+1)}</div><b>${esc(x.name)}</b>${meta?`<div class="am">${meta}</div>`:''}${x.note?`<div class="an">${esc(x.note)}</div>`:''}${chips.length?`<div class="ap">${chips.join('')}</div>`:''}</div>`;
   }).join('');
   const tot=any&&L.length>1&&(a+k)>0?`<div class="atot"><span>If you chose all of them, for ${plural(a+k,'traveller')}</span><b>${money(grand)}</b></div>`:'';
-  return `<div class="acts"><div class="hdr">${esc(awPlural(word))}</div><p class="pickany">Choose one, a few, or all of them. You don’t have to pick everything.</p>${rows}${tot}</div>`;
+  return `<div class="acts"><div class="hdr">${hasA&&hasO?esc(awPlural(word))+' and extras':hasA?esc(awPlural(word)):'Extras'}</div><p class="pickany">Choose one, a few, or all of them. You don’t have to pick everything.</p>${rows}${tot}</div>`;
 }
 function quoteHTML(){
   const opts=S.options, n=people();
@@ -341,7 +346,7 @@ function quoteHTML(){
         ${o.place?`<div class="sub">${esc(o.place)}</div>`:''}
         <div class="price"><div class="big">${esc(ppTxt)} <small>per person</small></div>${tot?`<div class="tot">${esc(tot)} total${n?` for all ${n}`:''}</div>`:''}</div>
         ${rows.length?`<dl>${rows.map(r=>`<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('')}</dl>`:''}
-        ${(yes.length||no.length)?`<div class="hdr">Included and not included</div><ul class="inc">${yes.map(x=>`<li>${esc(x)}</li>`).join('')}${no.map(x=>`<li class="no">${esc(x)}</li>`).join('')}</ul>`:''}
+        ${yes.length?`<div class="hdr yes">Included</div><ul class="inc">${yes.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${no.length?`<div class="hdr nox">Not included</div><ul class="inc out">${no.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}
         ${notes.length?`<div class="hdr">Additional notes</div><ul class="notes">${notes.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}
         ${actsHTML(o)}
       </div></article>`;
@@ -363,7 +368,7 @@ function quoteHTML(){
       <ol class="steps"><li>Tell me which option you like, and which extras you'd like to add.</li><li>I'll hold it with a deposit${t.step2?' before <b>'+esc(t.step2)+'</b>':''}.</li><li>I'll send your itinerary and keep an eye on it until you travel.</li></ol>
       <a class="cta" href="${FORM_URL}">Let’s make it happen!</a><div class="ctalink"><span class="lnk">Nextravel Form</span></div>
       <div class="contact"><b>Chris Blunt</b>, Independent Travel Advisor · <span class="mail">chris.blunt@nextravel.ca</span></div>
-      <p class="fine">Prices are per person in ${S.cur==='USD'?'US dollars':'Canadian dollars'}, based on double occupancy where noted, and can change until a deposit is paid. Nextravel.ca is affiliated with Nexion Canada, ULC.</p></section>`;
+      <p class="fine">Prices are per person in ${S.cur==='USD'?'US dollars':'Canadian dollars'}, based on double occupancy where noted, and can change until a deposit is paid. Nextravel.ca is affiliated with Nexion Canada, ULC.</p><p class="design">Designed by VonAnderson Consulting</p></section>`;
 }
 const pv=document.getElementById('preview');
 function renderPreview(){pv.innerHTML='<div class="q" id="quote">'+quoteHTML()+'</div>';}
@@ -412,7 +417,7 @@ function renderForm(){
     <div class="xform"><div class="opt-head"><b>${AW}s</b><button class="btn small" type="button" data-aadd="${i}">+ Add</button></div>
     <p class="hint">Clients can choose one, a few, or all of these. They do not have to pick everything. The quote says so.</p>
     ${(x.acts||[]).map((a,j)=>{const rk=actRank(x).indexOf(j); const af=(k,lab,ph,mode,area,typ)=>`<div class="f"><label for="a${i}_${j}${k}">${lab}</label>${area?`<textarea id="a${i}_${j}${k}" data-ao="${i}" data-ai="${j}" data-ak="${k}">${esc(a[k])}</textarea>`:`<input id="a${i}_${j}${k}" data-ao="${i}" data-ai="${j}" data-ak="${k}" value="${esc(a[k])}" ${typ?`type="${typ}"`:''} ${ph?`placeholder="${esc(ph)}"`:''} ${mode?`inputmode="${mode}"`:''} autocomplete="off">`}</div>`;
-      return `<div class="xform" style="border-left:4px solid var(--navy);padding-left:10px"><div class="opt-head"><span class="hint" style="margin:0"><b>${AW} ${rk+1}</b></span><button class="btn small" type="button" data-arm="${i}_${j}">Remove</button></div>${af('name','Name','Mayan ruins and cenote swim')}<div class="row2">${af('date','Date','',null,false,'date')}${sel('a'+i+'_'+j+'part','Time of day',a.part||'',[['','—']].concat(PARTS),'data-ao="'+i+'" data-ai="'+j+'" data-ak="part"')}</div><div class="row2">${af('ad','Adult price ($)','119','numeric')}${af('ch','Child price ($)','blank = same','numeric')}</div>${af('note','What is included','',null,true)}</div>`;}).join('')}</div>
+      return `<div class="xform" style="border-left:4px solid var(--navy);padding-left:10px"><div class="opt-head"><span class="hint" style="margin:0"><b>${a.kind==='other'?esc((a.kl||'').trim()||'Other'):AW+' '+(actRank(x).filter(q=>x.acts[q].kind!=='other').indexOf(j)+1)}</b></span><button class="btn small" type="button" data-arm="${i}_${j}">Remove</button></div>${sel('a'+i+'_'+j+'kind','Type',a.kind||'',[['','Adventure'],['other','Other (baggage fee, extra, etc.)']],'data-ao="'+i+'" data-ai="'+j+'" data-ak="kind"')}${a.kind==='other'?af('kl','What is it called?','Baggage fee'):''}${af('name','Name',a.kind==='other'?'1st checked bag':'Mayan ruins and cenote swim')}<div class="row2">${af('date','Date','',null,false,'date')}${sel('a'+i+'_'+j+'part','Time of day',a.part||'',[['','—']].concat(PARTS),'data-ao="'+i+'" data-ai="'+j+'" data-ak="part"')}</div><div class="row2">${af('ad','Adult price ($)','119','numeric')}${af('ch','Child price ($)','blank = same','numeric')}</div>${af('note','What is included','',null,true)}</div>`;}).join('')}</div>
     <label class="chk"><input type="checkbox" data-o="${i}" data-k="pick" ${x.pick?'checked':''}> Mark as Best Fit for You</label></fieldset>`;
   });
   h+=dl('dl-meals',MEALS)+dl('dl-flights',FLIGHTS)+dl('dl-trans',TRANSFERS);
@@ -435,7 +440,7 @@ function setVal(id,v){const e=document.getElementById(id); if(e) e.value=v;}
 function onInput(e){
   const t=e.target; if(t.type==='file') return;
   if(t.dataset.ck!==undefined){ const [oi,k]=t.dataset.ck.split('_').map(Number); const o=S.options[oi]; o.chk=o.chk||[]; o.chk[k]=t.value; renderPreview(); saveDraft(); return; }
-  if(t.dataset.ak!==undefined){ const o=S.options[+t.dataset.ao]; o.acts[+t.dataset.ai][t.dataset.ak]=t.value; renderPreview(); saveDraft(); if(t.dataset.ak==='date'||t.dataset.ak==='part') renderForm(); return; }
+  if(t.dataset.ak!==undefined){ const o=S.options[+t.dataset.ao]; o.acts[+t.dataset.ai][t.dataset.ak]=t.value; renderPreview(); saveDraft(); if(t.dataset.ak==='date'||t.dataset.ak==='part'||t.dataset.ak==='kind') renderForm(); return; }
   if(t.dataset.o!==undefined){S.options[+t.dataset.o][t.dataset.k]=t.type==='checkbox'?t.checked:t.value;
     if(t.type==='checkbox'&&t.checked) S.options.forEach((x,j)=>{if(j!==+t.dataset.o)x.pick=false;});
   }
