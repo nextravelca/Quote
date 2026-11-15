@@ -118,6 +118,14 @@ fieldset>*{clear:both}
 .q .hdr.yes,.q .hdr.nox{margin-top:8px;display:flex;align-items:center;gap:6px}
 .q .hdr.yes{color:#2A7D3E}.q .hdr.yes::before{content:"\2713";font-size:15px}
 .q .hdr.nox{color:#C62828}.q .hdr.nox::before{content:"\2715";font-size:15px}
+.q .choose{width:100%;padding:12px;border-radius:12px;border:2px solid var(--blue);background:#fff;color:var(--blue);font-weight:600;font-size:16px;cursor:pointer;font-family:inherit;margin-top:auto}
+.q .choose.on{background:var(--blue);color:#fff}
+.q .card.chosen{outline:3px solid var(--blue)}
+.q .addx{display:inline-flex;gap:8px;align-items:center;margin-top:8px;font-size:14px;font-weight:600;color:var(--navy);cursor:pointer}
+.q .addx input{width:18px;height:18px;accent-color:var(--blue)}
+.q .mychoice{background:#fff;border:2px solid var(--blue);border-radius:14px;padding:12px 14px;margin:6px 0 14px;font-size:15px;max-width:60ch}
+.q .mychoice b{color:var(--navy)}
+.q .mychoice.none{border-style:dashed;color:var(--muted)}
 .q .design{font-size:11.5px;color:var(--muted);margin-top:8px;text-align:left;letter-spacing:.02em}
 .q .hdr{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:-4px;font-weight:600}
 .q .acts{margin-top:14px;border-top:1.5px dashed var(--line);padding-top:12px}
@@ -184,7 +192,7 @@ fieldset>*{clear:both}
     <button class="btn main" id="pdfBtn" type="button">Save as PDF</button>
   </div>
 </div>
-<div class="qpanel" id="qpanel" role="dialog" aria-label="My quotes"><div class="qbox"><h2>My quotes</h2><p class="hint" style="margin:0 0 6px">Saved on this phone or computer, in this browser only.</p><div id="qlist"></div><div class="qfoot" style="margin-bottom:6px"><button class="btn small" id="qBackup" type="button">Back up all my quotes (file)</button><button class="btn small" id="qRestore" type="button">Open a backup file</button><input type="file" id="qFile" accept=".json,.ntquotes,application/json" hidden></div><p class="hint" style="margin:0 0 8px">A backup file keeps your quotes safe if the browser forgets them. You can open it on any phone or computer.</p><div class="qfoot"><button class="btn small" id="qSaveNow" type="button">Save the quote I am working on</button><button class="btn small" id="qClose" type="button">Close</button></div></div></div>
+<div class="qpanel" id="qpanel" role="dialog" aria-label="My quotes"><div class="qbox"><h2>My quotes</h2><p class="hint" style="margin:0 0 6px">Saved on this phone or computer, in this browser only.</p><div id="qlist"></div><div class="qfoot" style="margin-bottom:6px"><button class="btn small" id="qBackup" type="button">Back up all my quotes (file)</button><button class="btn small" id="qRestore" type="button">Open a backup file</button><input type="file" id="qFile" accept=".json,.ntquotes,application/json" hidden></div><p class="hint" style="margin:0 0 8px">A backup file keeps your quotes safe if the browser forgets them. You can open it on any phone or computer.</p><div class="qfoot"><button class="btn small" id="qSaveNow" type="button">Save the quote I am working on</button><button class="btn small" id="qSaveCopy" type="button">Save as a new copy</button><button class="btn small" id="qClose" type="button">Close</button></div></div></div>
 <div class="linkbox" id="linkbox"><b id="linkLabel">Link to send:</b><input id="linkOut" readonly aria-label="Link to send"><button class="btn small" id="copyLink" type="button">Copy</button><small id="linkNote">The whole quote is inside this link. Photos you added yourself are not included in the link (the built-in photos are). Make a new link after any change.</small></div>
 <div class="tabs" role="tablist">
   <button type="button" role="tab" id="tabFill" aria-selected="true">1. Fill in</button>
@@ -312,13 +320,34 @@ const CHK=["Checked baggage","Taxes and fees","Drinks","Tips and gratuities","Tr
 const SORTP=['Full day','Morning','Afternoon','Evening'];
 const actKey=a=>(a.date||'9999-99-99')+String(a.part&&SORTP.indexOf(a.part)>=0?SORTP.indexOf(a.part):9);
 function actRank(o){const L=o.acts||[];return L.map((a,i)=>i).sort((p,q)=>actKey(L[p]).localeCompare(actKey(L[q]))||p-q);}
-function actsHTML(o){
+let CH={opt:null,acts:{}};
+const optName=(o,i)=>'Option '+String.fromCharCode(65+i)+(o.name?' - '+o.name:'')+(o.label?' ('+o.label+')':'');
+const actName=x=>x.kind==='other'?(((x.kl||'').trim()||'Other')+': '+x.name):(x.name+(x.date?' ('+fmtDW(x.date)+')':''));
+function actTotal(x){const a=+S.adults||0,k=+S.kids||0,ad=num(x.ad),cv=num(x.ch),ch=cv==null?ad:cv;return ad!=null?ad*a+(ch!=null?ch*k:0):null;}
+function chosenInfo(){
+  const o=CH.opt!=null?S.options[CH.opt]:null; if(!o) return null;
+  const xs=Object.keys(CH.acts).filter(j=>CH.acts[j]&&o.acts&&o.acts[j]&&o.acts[j].name).map(Number).sort((p,q)=>p-q).map(j=>o.acts[j]);
+  let tot=0,any=false; xs.forEach(x=>{const t=actTotal(x);if(t!=null){tot+=t;any=true;}});
+  return {opt:optName(o,CH.opt),xs:xs.map(actName),tot:any?tot:null};
+}
+function formURL(){
+  const c=chosenInfo(); if(!c) return FORM_URL;
+  const ex=c.xs.length?c.xs.join('; ')+(c.tot!=null?' | Extras total: '+money(c.tot):''):'None';
+  const q=[['optionChosen',c.opt],['extrasChosen',ex]]; if(S.quoteNo) q.push(['quoteNo',S.quoteNo]);
+  return FORM_URL+'?'+q.map(([k,v])=>k+'='+encodeURIComponent(v)).join('&');
+}
+function myChoiceHTML(){
+  const c=chosenInfo();
+  if(!c) return '<p class="mychoice none">Tap <b>Choose this option</b> on the one you like. You can also tick the adventures and extras you want. Your choices go straight into the form.</p>';
+  return `<div class="mychoice"><b>Your choice:</b> ${esc(c.opt)}${c.xs.length?`<br><b>Plus:</b> ${c.xs.map(esc).join(', ')}${c.tot!=null?` (extras ${esc(money(c.tot))})`:''}`:''}</div>`;
+}
+function actsHTML(o,oi,st){
   const word=AW;
-  const L=actRank(o).map(i=>o.acts[i]).filter(x=>x.name&&x.name.trim()); if(!L.length) return '';
+  const IDX=actRank(o).filter(j=>o.acts[j].name&&o.acts[j].name.trim()); const L=IDX.map(j=>o.acts[j]); if(!L.length) return '';
   const a=+S.adults||0,k=+S.kids||0; let grand=0,any=false;
   const cnt={}; const labOf=x=>x.kind==='other'?((x.kl||'').trim()||'Other'):word;
   const hasA=L.some(x=>x.kind!=='other'), hasO=L.some(x=>x.kind==='other');
-  const rows=L.map((x,n)=>{
+  const rows=L.map((x,n)=>{ const aj=IDX[n];
     const ad=num(x.ad), chv=num(x.ch), ch=chv==null?ad:chv;
     let sub=null; if(ad!=null){sub=ad*a+(ch!=null?ch*k:0); grand+=sub; any=true;}
     const chips=[];
@@ -326,19 +355,19 @@ function actsHTML(o){
     if(ad!=null&&(k>0||chv!=null)) chips.push(`<span>Child ${chv==null?'same':money(chv)}</span>`);
     if(sub!=null&&(a+k)>0) chips.push(`<span class="g">Your group ${money(sub)}</span>`);
     const meta=[fmtDW(x.date),x.part].filter(Boolean).map(esc).join(' · ');
-    return `<div class="act"><div class="kd">${esc(labOf(x))}${x.kind==='other'?'':' '+(cnt.a=(cnt.a||0)+1)}</div><b>${esc(x.name)}</b>${meta?`<div class="am">${meta}</div>`:''}${x.note?`<div class="an">${esc(x.note)}</div>`:''}${chips.length?`<div class="ap">${chips.join('')}</div>`:''}</div>`;
+    return `<div class="act"><div class="kd">${esc(labOf(x))}${x.kind==='other'?'':' '+(cnt.a=(cnt.a||0)+1)}</div><b>${esc(x.name)}</b>${meta?`<div class="am">${meta}</div>`:''}${x.note?`<div class="an">${esc(x.note)}</div>`:''}${chips.length?`<div class="ap">${chips.join('')}</div>`:''}${st?'':`<label class="addx"><input type="checkbox" data-pickact="${oi}_${aj}"${CH.opt===oi&&CH.acts[aj]?' checked':''}> Add this</label>`}</div>`;
   }).join('');
   const tot=any&&L.length>1&&(a+k)>0?`<div class="atot"><span>If you chose all of them, for ${plural(a+k,'traveller')}</span><b>${money(grand)}</b></div>`:'';
   return `<div class="acts"><div class="hdr">${hasA&&hasO?esc(awPlural(word))+' and extras':hasA?esc(awPlural(word)):'Extras'}</div><p class="pickany">Choose one, a few, or all of them. You don’t have to pick everything.</p>${rows}${tot}</div>`;
 }
-function quoteHTML(){
+function quoteHTML(st){
   const opts=S.options, n=people();
   const cards=opts.map((o,i)=>{
     const {ppTxt,tot}=priceBits(o);
     const img=o.photo||IMGS[i%IMGS.length];
     const rows=[["Stay",o.room],["Meals",o.meals],["Flights",o.flights],["Transfers",o.transfers]].filter(r=>r[1]);
     const yes=CHK.filter((c,k)=>(o.chk||[])[k]==='in'), no=CHK.filter((c,k)=>(o.chk||[])[k]==='out'), notes=lines(o.inc);
-    return `<article class="card${o.pick?' pick':''}">${o.pick?'<span class="ribbon">Best Fit for You</span>':''}
+    return `<article class="card${o.pick?' pick':''}${!st&&CH.opt===i?' chosen':''}">${o.pick?'<span class="ribbon">Best Fit for You</span>':''}
       <img src="${img}" alt="${esc(o.name||'Trip photo')}">
       <div class="body">
         <div class="tag">Option ${String.fromCharCode(65+i)}${o.label?' · '+esc(o.label):''}</div>
@@ -348,7 +377,8 @@ function quoteHTML(){
         ${rows.length?`<dl>${rows.map(r=>`<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('')}</dl>`:''}
         ${yes.length?`<div class="hdr yes">Included</div><ul class="inc">${yes.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${no.length?`<div class="hdr nox">Not included</div><ul class="inc out">${no.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}
         ${notes.length?`<div class="hdr">Additional notes</div><ul class="notes">${notes.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}
-        ${actsHTML(o)}
+        ${actsHTML(o,i,st)}
+        ${st?'':`<button type="button" class="choose${CH.opt===i?' on':''}" data-pickopt="${i}">${CH.opt===i?'✓ You chose this option (tap to undo)':'Choose this option'}</button>`}
       </div></article>`;
   }).join('');
   const t=termsDerived();
@@ -365,13 +395,16 @@ function quoteHTML(){
     ${terms.length?`<section class="terms">${terms.map(r=>`<div><span>${r[0]}</span><b>${esc(r[1])}</b></div>`).join('')}</section>`:''}
     ${sup?`<section class="backup"><h3>The supplier's full details</h3><p>The original breakdown from the supplier, for anyone who likes the fine print.</p>${sup}</section>`:''}
     <section class="next"><h3>Ready when you are</h3>
-      <ol class="steps"><li>Tell me which option you like, and which extras you'd like to add.</li><li>I'll hold it with a deposit${t.step2?' before <b>'+esc(t.step2)+'</b>':''}.</li><li>I'll send your itinerary and keep an eye on it until you travel.</li></ol>
-      <a class="cta" href="${FORM_URL}">Let’s make it happen!</a><div class="ctalink"><span class="lnk">Nextravel Form</span></div>
+      <ol class="steps"><li>${st?"Tell me which option you like, and which extras you'd like to add.":'Tap Choose this option on the one you like, and tick any extras you want.'}</li><li>I'll hold it with a deposit${t.step2?' before <b>'+esc(t.step2)+'</b>':''}.</li><li>I'll send your itinerary and keep an eye on it until you travel.</li></ol>
+      ${st?'':myChoiceHTML()}<a class="cta" href="${st?FORM_URL:formURL()}">Let’s make it happen!</a><div class="ctalink"><span class="lnk">Nextravel Form</span></div>
       <div class="contact"><b>Chris Blunt</b>, Independent Travel Advisor · <span class="mail">chris.blunt@nextravel.ca</span></div>
       <p class="fine">Prices are per person in ${S.cur==='USD'?'US dollars':'Canadian dollars'}, based on double occupancy where noted, and can change until a deposit is paid. Nextravel.ca is affiliated with Nexion Canada, ULC.</p><p class="design">Designed by VonAnderson Consulting</p></section>`;
 }
 const pv=document.getElementById('preview');
-function renderPreview(){pv.innerHTML='<div class="q" id="quote">'+quoteHTML()+'</div>';}
+function repick(){const y=window.scrollY;renderPreview();window.scrollTo(0,y);}
+pv.addEventListener('click',e=>{const b=e.target.closest('[data-pickopt]');if(!b)return;const i=+b.dataset.pickopt;if(CH.opt===i)CH={opt:null,acts:{}};else CH={opt:i,acts:{}};repick();});
+pv.addEventListener('change',e=>{const c=e.target.closest('[data-pickact]');if(!c)return;const [i,j]=c.dataset.pickact.split('_').map(Number);if(CH.opt!==i)CH={opt:i,acts:{}};CH.acts[j]=c.checked;repick();});
+function renderPreview(){if(CH.opt!=null&&!S.options[CH.opt])CH={opt:null,acts:{}};pv.innerHTML='<div class="q" id="quote">'+quoteHTML()+'</div>';}
 
 /* ---------- form ---------- */
 const F=document.getElementById('form');
@@ -433,7 +466,7 @@ function renderForm(){
   <fieldset><legend>The supplier's screenshot or PDF page</legend><p class="hint" style="margin-top:0">Add the screenshots from the supplier portal. They go at the bottom of the quote.</p>
     <div class="photo-row" style="flex-wrap:wrap">${(S.supplier||[]).map((s,i)=>`<span><img src="${s}" alt=""><button class="btn small" type="button" data-rmsup="${i}">×</button></span>`).join('')}
     <label class="btn small" for="supfile" style="cursor:pointer">Add screenshot</label><input id="supfile" type="file" accept="image/*" multiple hidden></div></fieldset>`;
-  h+=`<fieldset><legend>Done? Save it or send it</legend><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn main" type="button" data-do="pdf">Save as PDF</button><button class="btn small" type="button" data-do="save">Save quote</button><button class="btn small" type="button" data-do="edit">Get an edit link</button><button class="btn small" type="button" data-do="link">Get a link to send</button><button class="btn small" type="button" data-do="png">Save as picture</button></div></fieldset>`;
+  h+=`<fieldset><legend>Done? Save it or send it</legend><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn main" type="button" data-do="pdf">Save as PDF</button><button class="btn small" type="button" data-do="save">Save quote</button><button class="btn small" type="button" data-do="savecopy">Save as new copy</button><button class="btn small" type="button" data-do="edit">Get an edit link</button><button class="btn small" type="button" data-do="link">Get a link to send</button><button class="btn small" type="button" data-do="png">Save as picture</button></div></fieldset>`;
   F.innerHTML=h;
 }
 function setVal(id,v){const e=document.getElementById(id); if(e) e.value=v;}
@@ -458,7 +491,7 @@ F.addEventListener('input',onInput);
 F.addEventListener('change',e=>{ if(e.target.tagName==='SELECT'&&!e.target.dataset.o) onInput(e); });
 F.addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b) return;
-  if(b.dataset.do){ const a=b.dataset.do; if(a==='link'){document.getElementById('linkBtn').click();window.scrollTo(0,0);} else if(a==='edit'){showLink('e');window.scrollTo(0,0);} else if(a==='save'){saveQuote();} else doSave(a); return; }
+  if(b.dataset.do){ const a=b.dataset.do; if(a==='link'){document.getElementById('linkBtn').click();window.scrollTo(0,0);} else if(a==='edit'){showLink('e');window.scrollTo(0,0);} else if(a==='save'){saveQuote();} else if(a==='savecopy'){saveQuote(false,true);} else doSave(a); return; }
   if(b.dataset.aadd!==undefined){const o=S.options[+b.dataset.aadd]; (o.acts=o.acts||[]).push(blankAct());}
   else if(b.dataset.arm!==undefined){const [oi,ai]=b.dataset.arm.split('_').map(Number); S.options[oi].acts.splice(ai,1);}
   else if(b.dataset.rm!==undefined){S.options.splice(+b.dataset.rm,1);}
@@ -491,7 +524,7 @@ const fname=ext=>('Nextravel-quote-'+(S.client||S.quoteNo||'trip')).replace(/[^\
 async function capture(){
   const host=document.createElement('div');
   host.style.cssText='position:fixed;left:-20000px;top:0;width:1040px;background:#eef4f9;padding:0';
-  host.innerHTML='<div class="q force">'+quoteHTML()+'</div>';
+  host.innerHTML='<div class="q force">'+quoteHTML(true)+'</div>';
   document.body.appendChild(host);
   try{ if(document.fonts&&document.fonts.ready) await document.fonts.ready;
     const root=host.firstChild, rr=root.getBoundingClientRect(), links=[];
@@ -510,7 +543,7 @@ async function doSave(kind){
         for(const r of rules){const x=r.cssText; if(/^(:root|\*|html, body)/.test(x)||x.includes('.q')) css+=x+'\n';}}
       const doc='<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>'+esc('Your trip quote from Nextravel')+'</title>'+
         '<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">'+
-        '<style>'+css+'body{margin:0;padding:16px 16px 40px;background:#eef4f9}</style></head><body><div class="q">'+quoteHTML()+'</div></body></html>';
+        '<style>'+css+'body{margin:0;padding:16px 16px 40px;background:#eef4f9}</style></head><body><div class="q">'+quoteHTML(true)+'</div></body></html>';
       await DL.save({filename:fname('html'),data:doc});
     } else {
     const {canvas:c,links}=await capture();
@@ -580,9 +613,10 @@ const loadQ=()=>{try{return JSON.parse(localStorage.getItem(QK)||'[]')}catch(e){
 const storeQ=l=>{try{localStorage.setItem(QK,JSON.stringify(l));return true;}catch(e){return false;}};
 function setCur(id){curId=id;try{id?localStorage.setItem(CK,id):localStorage.removeItem(CK);}catch(e){}}
 const qName=()=>(S.client||'').trim()||'Untitled quote';
-function saveQuote(silent){
+function saveQuote(silent,asNew){
   const list=loadQ(), now=Date.now();
-  const id=(curId&&list.find(x=>x.id===curId))?curId:('q'+now.toString(36)+Math.random().toString(36).slice(2,6));
+  const prev=(!asNew&&curId)?list.find(x=>x.id===curId):null;
+  const id=(!asNew&&curId&&list.find(x=>x.id===curId))?curId:('q'+now.toString(36)+Math.random().toString(36).slice(2,6));
   const rec={id,name:qName(),saved:now,data:JSON.parse(JSON.stringify(S))};
   const i=list.findIndex(x=>x.id===id); if(i>=0) list[i]=rec; else list.unshift(rec);
   let ok=storeQ(list), note='';
@@ -590,7 +624,7 @@ function saveQuote(silent){
     const lite=JSON.parse(JSON.stringify(rec)); lite.data.options.forEach(o=>{o.photo=null;}); lite.data.supplier=[];
     const j=list.findIndex(x=>x.id===id); list[j]=lite; ok=storeQ(list); note=' (without your own photos and screenshots, because the browser storage was full)';
   }
-  if(ok){setCur(id); if(!silent) say('Saved as "'+rec.name+'"'+note+'.');}
+  if(ok){setCur(id); if(!silent) say(asNew?'Saved as a new copy: "'+rec.name+'"'+note+'. The original is still in My quotes.':(prev&&prev.name!==rec.name?'Saved. The quote "'+prev.name+'" is now called "'+rec.name+'". To keep the old one too, use Save as new copy.':'Saved as "'+rec.name+'"'+note+'.'));}
   else say('Could not save. The browser storage is full. Delete some old quotes in My quotes.');
   if(document.getElementById('qpanel').classList.contains('on')) renderPanel();
   return ok;
@@ -611,6 +645,7 @@ function openQuote(id){
 document.getElementById('myBtn').onclick=openPanel;
 document.getElementById('saveBtn').onclick=()=>saveQuote();
 document.getElementById('qSaveNow').onclick=()=>saveQuote();
+document.getElementById('qSaveCopy').onclick=()=>saveQuote(false,true);
 document.getElementById('qClose').onclick=closePanel;
 document.getElementById('qBackup').onclick=async()=>{
   saveQuote(true);
